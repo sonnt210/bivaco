@@ -1,0 +1,206 @@
+@extends('layouts.app')
+
+@section('title', 'Chỉnh sửa đơn hàng')
+
+@section('content')
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Chỉnh sửa đơn hàng #{{ $order->id }}</h3>
+                    <div class="card-tools">
+                        <a href="{{ route('orders.index') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Quay lại
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <form action="{{ route('orders.update', $order->id) }}" method="POST">
+                        @csrf
+                        @method('PUT')
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="distributor_id">Distributor <span class="text-danger">*</span></label>
+                                    <select name="distributor_id" id="distributor_id" class="form-control @error('distributor_id') is-invalid @enderror" required>
+                                        <option value="">Chọn distributor</option>
+                                        @foreach($distributors as $distributor)
+                                            <option value="{{ $distributor->id }}"
+                                                {{ old('distributor_id', $order->distributor_id) == $distributor->id ? 'selected' : '' }}
+                                                data-level="{{ $distributor->level }}">
+                                                {{ $distributor->distributor_name }}
+                                                ({{ $distributor->distributor_code }}) - F{{ $distributor->level }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    @error('distributor_id')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="bill_code">Mã hóa đơn <span class="text-danger">*</span></label>
+                                    <input type="text" name="bill_code" id="bill_code"
+                                        class="form-control @error('bill_code') is-invalid @enderror"
+                                        value="{{ old('bill_code', $order->bill_code) }}"
+                                        placeholder="Nhập mã hóa đơn" required>
+                                    @error('bill_code')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="amount">Số tiền <span class="text-danger">*</span></label>
+                                    <div class="input-group">
+                                        <input type="number" name="amount" id="amount"
+                                            class="form-control @error('amount') is-invalid @enderror"
+                                            value="{{ old('amount', $order->amount) }}"
+                                            placeholder="Nhập số tiền"
+                                            min="0" step="0.01" required>
+                                        <div class="input-group-append">
+                                            <span class="input-group-text">VNĐ</span>
+                                        </div>
+                                    </div>
+                                    @error('amount')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="sale_time">Thời gian bán <span class="text-danger">*</span></label>
+                                    <input type="datetime-local" name="sale_time" id="sale_time"
+                                        class="form-control @error('sale_time') is-invalid @enderror"
+                                        value="{{ old('sale_time', $order->sale_time->format('Y-m-d\TH:i')) }}" required>
+                                    @error('sale_time')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    <label for="notes">Ghi chú</label>
+                                    <textarea name="notes" id="notes" rows="3"
+                                        class="form-control @error('notes') is-invalid @enderror"
+                                        placeholder="Nhập ghi chú (nếu có)">{{ old('notes', $order->notes) }}</textarea>
+                                    @error('notes')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Thông tin hiện tại -->
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="card card-outline card-warning">
+                                    <div class="card-header">
+                                        <h3 class="card-title">Thông tin hiện tại</h3>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-md-3">
+                                                <strong>ID:</strong>
+                                                <div class="text-muted">{{ $order->id }}</div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <strong>Distributor:</strong>
+                                                <div class="text-muted">
+                                                    @if($order->distributor)
+                                                        {{ $order->distributor->distributor_name }}
+                                                        <br><small>{{ $order->distributor->distributor_code }}</small>
+                                                    @else
+                                                        N/A
+                                                    @endif
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <strong>Cấp độ:</strong>
+                                                <div class="text-muted">F{{ $order->distributor_level }}</div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <strong>Ngày tạo:</strong>
+                                                <div class="text-muted">{{ $order->created_at->format('d/m/Y H:i') }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save"></i> Cập nhật đơn hàng
+                                    </button>
+                                    <a href="{{ route('orders.index') }}" class="btn btn-secondary">
+                                        <i class="fas fa-times"></i> Hủy
+                                    </a>
+                                    <a href="{{ route('orders.show', $order->id) }}" class="btn btn-info">
+                                        <i class="fas fa-eye"></i> Xem chi tiết
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+@endsection
+
+@push('scripts')
+<script>
+$(document).ready(function() {
+    // Cập nhật preview khi thay đổi distributor
+    $('#distributor_id').change(function() {
+        var selectedOption = $(this).find('option:selected');
+        var distributorName = selectedOption.text();
+        var level = selectedOption.data('level');
+
+        $('#preview_distributor').text(distributorName || 'Chưa chọn');
+        $('#preview_level').text(level ? 'F' + level : '-');
+    });
+
+    // Cập nhật preview khi thay đổi số tiền
+    $('#amount').on('input', function() {
+        var amount = $(this).val();
+        if (amount) {
+            $('#preview_amount').text(new Intl.NumberFormat('vi-VN').format(amount) + ' VNĐ');
+        } else {
+            $('#preview_amount').text('0 VNĐ');
+        }
+    });
+
+    // Cập nhật preview khi thay đổi thời gian
+    $('#sale_time').change(function() {
+        var time = $(this).val();
+        if (time) {
+            var date = new Date(time);
+            $('#preview_time').text(date.toLocaleString('vi-VN'));
+        } else {
+            $('#preview_time').text('-');
+        }
+    });
+
+    // Khởi tạo preview ban đầu
+    $('#distributor_id').trigger('change');
+    $('#amount').trigger('input');
+    $('#sale_time').trigger('change');
+});
+</script>
+@endpush
