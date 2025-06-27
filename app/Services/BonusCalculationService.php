@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Models\BonusRecord;
-use App\Models\Distributor;
+use App\Models\User;
 use App\Models\Order;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -18,7 +18,7 @@ class BonusCalculationService
         $monthYear = $monthYear ?? BonusRecord::getCurrentMonth();
 
         // Lấy tất cả nhà phân phối
-        $distributors = Distributor::where('status', 'active')->get();
+        $distributors = User::whereNotNull('distributor_code')->where('status', 'active')->get();
 
         $results = [];
         $qualifiedCount = 0;
@@ -58,7 +58,7 @@ class BonusCalculationService
     /**
      * Tính toán thưởng cho một nhà phân phối cụ thể
      */
-    public function calculateDistributorBonus(Distributor $distributor, string $monthYear): array
+    public function calculateDistributorBonus(User $distributor, string $monthYear): array
     {
         // Lấy doanh số cá nhân 3 tháng liên tiếp
         $personalSales = $this->getPersonalSales($distributor->id, $monthYear);
@@ -72,7 +72,7 @@ class BonusCalculationService
 
         // Lấy record cũ hoặc tạo mới
         $bonusRecord = BonusRecord::firstOrNew([
-            'distributor_id' => $distributor->id,
+            'user_id' => $distributor->id,
             'month_year' => $monthYear
         ]);
 
@@ -126,7 +126,7 @@ class BonusCalculationService
         $startDate = Carbon::createFromFormat('Y-m', $monthYear)->startOfMonth();
         $endDate = Carbon::createFromFormat('Y-m', $monthYear)->endOfMonth();
 
-        return Order::where('distributor_id', $distributorId)
+        return Order::where('user_id', $distributorId)
             ->whereBetween('sale_time', [$startDate, $endDate])
             ->sum('amount');
     }
@@ -140,13 +140,13 @@ class BonusCalculationService
         $endDate = Carbon::createFromFormat('Y-m', $monthYear)->endOfMonth();
 
         // Lấy tất cả con trực tiếp
-        $children = Distributor::where('parent_id', $distributorId)->get();
+        $children = User::whereNotNull('distributor_code')->where('parent_id', $distributorId)->get();
 
         $totalSales = 0;
         $qualifiedCount = 0;
 
         foreach ($children as $child) {
-            $childSales = Order::where('distributor_id', $child->id)
+            $childSales = Order::where('user_id', $child->id)
                 ->whereBetween('sale_time', [$startDate, $endDate])
                 ->sum('amount');
 
@@ -180,7 +180,7 @@ class BonusCalculationService
      */
     private function updateBonusRecord(array $result): void
     {
-        BonusRecord::where('distributor_id', $result['distributor_id'])
+        BonusRecord::where('user_id', $result['distributor_id'])
             ->where('month_year', $result['month_year'] ?? BonusRecord::getCurrentMonth())
             ->update([
                 'bonus_amount' => $result['bonus_amount']
@@ -199,43 +199,38 @@ class BonusCalculationService
         }
 
         if (!$record->personal_condition_met) {
-            $notes[] = "Không đạt điều kiện doanh số cá nhân (cần >= 5 triệu trong 3 tháng liên tiếp)";
+            $notes[] = "Không đạt điều kiện doanh số cá nhân 5 triệu";
         }
 
         if (!$record->branch_condition_met) {
-            $notes[] = "Không đạt điều kiện nhánh (cần >= 2 nhánh đạt 250 triệu trong 3 tháng liên tiếp)";
-        }
-
-        if ($record->is_qualified) {
-            $notes[] = "Đủ điều kiện nhận thưởng đồng chia";
+            $notes[] = "Không đạt điều kiện nhánh (ít nhất 1 nhánh đạt 3 triệu)";
         }
 
         return implode('; ', $notes);
     }
 
     /**
-     * Lấy báo cáo thưởng cho tháng cụ thể
+     * Lấy báo cáo thưởng cho tháng
      */
     public function getBonusReport(string $monthYear = null): array
     {
         $monthYear = $monthYear ?? BonusRecord::getCurrentMonth();
 
-        $records = BonusRecord::with('distributor')
+        $records = BonusRecord::with('user')
             ->where('month_year', $monthYear)
+            ->orderBy('bonus_amount', 'desc')
             ->get();
 
-        $totalSystemSales = $this->getTotalSystemSales($monthYear);
-        $bonusFund = $totalSystemSales * BonusRecord::BONUS_PERCENTAGE;
+        $totalBonus = $records->sum('bonus_amount');
         $qualifiedCount = $records->where('is_qualified', true)->count();
-        $bonusPerDistributor = $qualifiedCount > 0 ? $bonusFund / $qualifiedCount : 0;
+        $totalDistributors = $records->count();
 
         return [
             'month_year' => $monthYear,
-            'total_system_sales' => $totalSystemSales,
-            'bonus_fund' => $bonusFund,
+            'records' => $records,
+            'total_bonus' => $totalBonus,
             'qualified_count' => $qualifiedCount,
-            'bonus_per_distributor' => $bonusPerDistributor,
-            'records' => $records
+            'total_distributors' => $totalDistributors
         ];
     }
 }

@@ -32,12 +32,12 @@
                                     <div class="col-md-3">
                                         <div class="form-group">
                                             <label>Distributor</label>
-                                            <select name="distributor_id" class="form-control">
-                                                <option value="">Tất cả</option>
+                                            <select name="user_id" class="form-control">
+                                                <option value="">Tất cả Distributors</option>
                                                 @foreach($distributors as $distributor)
                                                     <option value="{{ $distributor->id }}"
-                                                        {{ request('distributor_id') == $distributor->id ? 'selected' : '' }}>
-                                                        {{ $distributor->distributor_name }} ({{ $distributor->distributor_code }})
+                                                        {{ request('user_id') == $distributor->id ? 'selected' : '' }}>
+                                                        {{ $distributor->distributor_code }} - {{ $distributor->distributor_name }}
                                                     </option>
                                                 @endforeach
                                             </select>
@@ -46,11 +46,11 @@
                                     <div class="col-md-2">
                                         <div class="form-group">
                                             <label>Cấp độ</label>
-                                            <select name="distributor_level" class="form-control">
-                                                <option value="">Tất cả</option>
+                                            <select name="user_level" class="form-control">
+                                                <option value="">Tất cả cấp độ</option>
                                                 @foreach($distributorLevels as $level)
                                                     <option value="{{ $level }}"
-                                                        {{ request('distributor_level') == $level ? 'selected' : '' }}>
+                                                        {{ request('user_level') == $level ? 'selected' : '' }}>
                                                         F{{ $level }}
                                                     </option>
                                                 @endforeach
@@ -146,7 +146,7 @@
                                         @endif
                                     </td>
                                     <td>
-                                        <span class="badge badge-info">F{{ $order->distributor_level }}</span>
+                                        <span class="badge badge-info">F{{ $order->user_level }}</span>
                                     </td>
                                     <td>
                                         <strong class="text-success">{{ number_format($order->amount) }} VNĐ</strong>
@@ -212,7 +212,7 @@
 <script>
 $(document).ready(function() {
     // Auto submit form khi thay đổi select
-    $('select[name="distributor_id"], select[name="distributor_level"]').change(function() {
+    $('select[name="user_id"], select[name="user_level"]').change(function() {
         $(this).closest('form').submit();
     });
 });

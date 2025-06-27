@@ -13,15 +13,14 @@ return new class extends Migration
     {
         Schema::create('orders', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('distributor_id')->constrained('distributors')->onDelete('cascade');
-            $table->unsignedInteger('distributor_level')->default(1);
+            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
+            $table->unsignedInteger('user_level')->default(1);
             $table->decimal('amount', 15, 2);
             $table->datetime('sale_time');
             $table->string('bill_code')->unique();
             $table->text('notes')->nullable();
             $table->timestamps();
-            
-            $table->index(['distributor_level', 'sale_time']);
+        
         });
     }
 

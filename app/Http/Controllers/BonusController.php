@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\BonusRecord;
-use App\Models\Distributor;
+use App\Models\User;
 use App\Services\BonusCalculationService;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
@@ -60,24 +60,24 @@ class BonusController extends Controller
      */
     public function show($distributorId, Request $request)
     {
-        $distributor = Distributor::findOrFail($distributorId);
+        $distributor = User::whereNotNull('distributor_code')->findOrFail($distributorId);
         $monthYear = $request->get('month', BonusRecord::getCurrentMonth());
 
         // Lấy record thưởng
-        $bonusRecord = BonusRecord::where('distributor_id', $distributorId)
+        $bonusRecord = BonusRecord::where('user_id', $distributorId)
             ->where('month_year', $monthYear)
             ->first();
 
         if (!$bonusRecord) {
             // Tính toán nếu chưa có
             $result = $this->bonusService->calculateDistributorBonus($distributor, $monthYear);
-            $bonusRecord = BonusRecord::where('distributor_id', $distributorId)
+            $bonusRecord = BonusRecord::where('user_id', $distributorId)
                 ->where('month_year', $monthYear)
                 ->first();
         }
 
         // Lấy lịch sử thưởng
-        $bonusHistory = BonusRecord::where('distributor_id', $distributorId)
+        $bonusHistory = BonusRecord::where('user_id', $distributorId)
             ->orderBy('month_year', 'desc')
             ->limit(12)
             ->get();

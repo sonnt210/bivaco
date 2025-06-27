@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DistributorController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\BonusController;
 
 /*
 |--------------------------------------------------------------------------
@@ -36,9 +37,16 @@ Route::prefix('orders')->name('orders.')->group(function () {
     Route::get('/', [OrderController::class, 'index'])->name('index');
     Route::get('/create', [OrderController::class, 'create'])->name('create');
     Route::post('/store', [OrderController::class, 'store'])->name('store');
+    Route::get('/search', [OrderController::class, 'search'])->name('search');
     Route::get('/{id}', [OrderController::class, 'show'])->name('show');
     Route::get('/{id}/edit', [OrderController::class, 'edit'])->name('edit');
     Route::put('/{id}', [OrderController::class, 'update'])->name('update');
     Route::delete('/{id}', [OrderController::class, 'destroy'])->name('destroy');
-    Route::get('/search', [OrderController::class, 'search'])->name('search');
+});
+
+// Routes cho quản lý Bonus
+Route::prefix('bonus')->name('bonus.')->group(function () {
+    Route::get('/', [BonusController::class, 'index'])->name('index');
+    Route::post('/calculate', [BonusController::class, 'calculate'])->name('calculate');
+    Route::get('/{distributorId}', [BonusController::class, 'show'])->name('show');
 });

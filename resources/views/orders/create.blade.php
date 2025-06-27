@@ -22,19 +22,17 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="distributor_id">Distributor <span class="text-danger">*</span></label>
-                                    <select name="distributor_id" id="distributor_id" class="form-control @error('distributor_id') is-invalid @enderror" required>
-                                        <option value="">Chọn distributor</option>
+                                    <label for="user_id">Distributor <span class="text-danger">*</span></label>
+                                    <select name="user_id" id="user_id" class="form-control @error('user_id') is-invalid @enderror" required>
+                                        <option value="">Chọn Distributor</option>
                                         @foreach($distributors as $distributor)
                                             <option value="{{ $distributor->id }}"
-                                                {{ old('distributor_id') == $distributor->id ? 'selected' : '' }}
-                                                data-level="{{ $distributor->level }}">
-                                                {{ $distributor->distributor_name }}
-                                                ({{ $distributor->distributor_code }}) - F{{ $distributor->level }}
+                                                {{ old('user_id') == $distributor->id ? 'selected' : '' }}>
+                                                {{ $distributor->distributor_code }} - {{ $distributor->distributor_name }}
                                             </option>
                                         @endforeach
                                     </select>
-                                    @error('distributor_id')
+                                    @error('user_id')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
@@ -125,7 +123,7 @@
 <script>
 $(document).ready(function() {
     // Cập nhật preview khi thay đổi distributor
-    $('#distributor_id').change(function() {
+    $('#user_id').change(function() {
         var selectedOption = $(this).find('option:selected');
         var distributorName = selectedOption.text();
         var level = selectedOption.data('level');
@@ -170,7 +168,7 @@ $(document).ready(function() {
     });
 
     // Khởi tạo preview ban đầu
-    $('#distributor_id').trigger('change');
+    $('#user_id').trigger('change');
     $('#amount').trigger('input');
     $('#sale_time').trigger('change');
 });

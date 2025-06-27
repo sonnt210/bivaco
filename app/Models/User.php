@@ -43,6 +43,7 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
+        'join_date' => 'date',
     ];
 
     // Quan hệ với user cha
@@ -61,6 +62,12 @@ class User extends Authenticatable
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class);
+    }
+
+    // Quan hệ với bonusRecords
+    public function bonusRecords()
+    {
+        return $this->hasMany(\App\Models\BonusRecord::class, 'user_id');
     }
 
     // Scope để lấy user theo cấp độ

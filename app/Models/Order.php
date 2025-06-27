@@ -11,8 +11,8 @@ class Order extends Model
     use HasFactory;
 
     protected $fillable = [
-        'distributor_id',
-        'distributor_level',
+        'user_id',
+        'user_level',
         'amount',
         'sale_time',
         'bill_code',
@@ -24,16 +24,16 @@ class Order extends Model
         'amount' => 'decimal:2',
     ];
 
-    // Quan hệ với distributor
-    public function distributor(): BelongsTo
+    // Quan hệ với user
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(Distributor::class);
+        return $this->belongsTo(User::class);
     }
 
-    // Scope để lấy orders theo cấp độ distributor
-    public function scopeByDistributorLevel($query, $level)
+    // Scope để lấy orders theo cấp độ user
+    public function scopeByUserLevel($query, $level)
     {
-        return $query->where('distributor_level', $level);
+        return $query->where('user_level', $level);
     }
 
     // Scope để lấy orders theo khoảng thời gian

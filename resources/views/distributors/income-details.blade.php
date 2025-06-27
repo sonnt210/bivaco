@@ -188,7 +188,7 @@
                     </div>
 
                     <!-- Lịch sử thưởng -->
-                    @if($bonusHistory->count() > 0)
+                    @if(count($bonusHistory ?? []) > 0)
                         <div class="row mb-4">
                             <div class="col-12">
                                 <div class="card card-outline card-info">
@@ -212,7 +212,7 @@
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    @foreach($bonusHistory as $record)
+                                                    @foreach($bonusHistory ?? [] as $record)
                                                         <tr>
                                                             <td>{{ \Carbon\Carbon::createFromFormat('Y-m', $record->month_year)->format('m/Y') }}</td>
                                                             <td>{{ number_format($record->personal_sales) }} VNĐ</td>
@@ -238,7 +238,7 @@
                     @endif
 
                     <!-- Thống kê con trực tiếp -->
-                    @if(count($childrenStats) > 0)
+                    @if(count($childrenStats ?? []) > 0)
                     <div class="row mb-4">
                         <div class="col-12">
                             <div class="card card-outline card-primary">
@@ -260,7 +260,7 @@
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                @foreach($childrenStats as $stat)
+                                                @foreach($childrenStats ?? [] as $stat)
                                                 <tr>
                                                     <td>
                                                         <a href="{{ route('distributors.show', $stat['distributor']->id) }}">

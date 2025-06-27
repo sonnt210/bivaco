@@ -61,7 +61,7 @@
                                             <tr>
                                                 <th>Cấp độ distributor</th>
                                                 <td>
-                                                    <span class="badge badge-info">F{{ $order->distributor_level }}</span>
+                                                    <span class="badge badge-info">F{{ $order->user_level }}</span>
                                                 </td>
                                             </tr>
                                             <tr>

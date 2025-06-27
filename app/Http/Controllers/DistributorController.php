@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Distributor;
+use App\Models\User;
 use App\Models\Order;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Pagination\Paginator;
 
 class DistributorController extends Controller
 {
@@ -15,16 +17,16 @@ class DistributorController extends Controller
      */
     public function index(): View
     {
-        $totalDistributors = Distributor::count();
-        $activeDistributors = Distributor::active()->count();
+        $totalDistributors = User::whereNotNull('distributor_code')->count();
+        $activeDistributors = User::whereNotNull('distributor_code')->where('status', 'active')->count();
 
         // Lấy thống kê theo cấp độ
-        $levelStats = Distributor::getLevelStatistics();
+        $levelStats = User::getLevelStatistics();
 
         // Lấy tất cả cấp độ có trong hệ thống
-        $allLevels = Distributor::getAllLevels();
+        $allLevels = User::getAllLevels();
 
-        $recentDistributors = Distributor::latest()->take(10)->get();
+        $recentDistributors = User::whereNotNull('distributor_code')->latest()->take(10)->get();
 
         return view('distributors.index', compact(
             'totalDistributors',
@@ -40,16 +42,17 @@ class DistributorController extends Controller
      */
     public function showByLevel($level): View
     {
-        $distributors = Distributor::byLevel($level)
-            ->active()
+        $distributors = User::whereNotNull('distributor_code')
+            ->byLevel($level)
+            ->where('status', 'active')
             ->with('parent')
             ->paginate(20);
 
         $levelName = 'F' . $level;
-        $levelDescription = Distributor::getLevelDescription($level);
+        $levelDescription = User::getLevelDescription($level);
 
         // Lấy thống kê cho cấp độ này
-        $levelStats = Distributor::getLevelStatistics();
+        $levelStats = User::getLevelStatistics();
         $currentLevelStats = $levelStats["F{$level}"] ?? null;
 
         return view('distributors.by-level', compact(
@@ -66,11 +69,11 @@ class DistributorController extends Controller
      */
     public function showStatistics(): View
     {
-        $statistics = Distributor::getLevelStatistics();
-        $allLevels = Distributor::getAllLevels();
+        $statistics = User::getLevelStatistics();
+        $allLevels = User::getAllLevels();
 
         // Thống kê tổng quan
-        $totalDistributors = Distributor::count();
+        $totalDistributors = User::whereNotNull('distributor_code')->count();
         $totalSales = Order::sum('amount');
         $totalOrders = Order::count();
 
@@ -88,7 +91,8 @@ class DistributorController extends Controller
      */
     public function show($id): View
     {
-        $distributor = Distributor::with(['parent', 'children', 'orders'])
+        $distributor = User::whereNotNull('distributor_code')
+            ->with(['parent', 'children', 'orders'])
             ->findOrFail($id);
 
         $levelName = $distributor->getLevelName();
@@ -116,7 +120,8 @@ class DistributorController extends Controller
      */
     public function showTree($id): View
     {
-        $distributor = Distributor::with(['children.children', 'parent'])
+        $distributor = User::whereNotNull('distributor_code')
+            ->with(['children.children', 'parent'])
             ->findOrFail($id);
 
         $tree = $this->buildTree($distributor);
@@ -130,8 +135,8 @@ class DistributorController extends Controller
      */
     public function create(): View
     {
-        $parents = Distributor::active()->get();
-        $allLevels = Distributor::getAllLevels();
+        $parents = User::whereNotNull('distributor_code')->where('status', 'active')->get();
+        $allLevels = User::getAllLevels();
         $maxLevel = config('distributor.max_level', 10);
 
         return view('distributors.create', compact('parents', 'allLevels', 'maxLevel'));
@@ -143,18 +148,18 @@ class DistributorController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
-            'distributor_code' => 'required|unique:distributors',
+            'distributor_code' => 'required|unique:users',
             'distributor_name' => 'required|string|max:255',
-            'distributor_email' => 'required|email|unique:distributors',
+            'distributor_email' => 'required|email|unique:users',
             'distributor_phone' => 'required|string|max:20',
             'distributor_address' => 'required|string',
-            'parent_id' => 'nullable|exists:distributors,id',
+            'parent_id' => 'nullable|exists:users,id',
             'join_date' => 'required|date'
         ]);
 
         $level = 1;
         if ($request->parent_id) {
-            $parent = Distributor::find($request->parent_id);
+            $parent = User::find($request->parent_id);
             $level = $parent->level + 1;
 
             // Kiểm tra giới hạn cấp độ
@@ -164,7 +169,9 @@ class DistributorController extends Controller
             }
         }
 
-        Distributor::create([
+        User::create([
+            'name' => $request->distributor_name,
+            'email' => $request->distributor_email,
             'distributor_code' => $request->distributor_code,
             'distributor_name' => $request->distributor_name,
             'distributor_email' => $request->distributor_email,
@@ -172,7 +179,8 @@ class DistributorController extends Controller
             'distributor_address' => $request->distributor_address,
             'parent_id' => $request->parent_id,
             'level' => $level,
-            'join_date' => $request->join_date
+            'join_date' => $request->join_date,
+            'status' => 'active'
         ]);
 
         return redirect()->route('distributors.index')
@@ -184,9 +192,12 @@ class DistributorController extends Controller
      */
     public function edit($id): View
     {
-        $distributor = Distributor::findOrFail($id);
-        $parents = Distributor::where('id', '!=', $id)->active()->get();
-        $allLevels = Distributor::getAllLevels();
+        $distributor = User::whereNotNull('distributor_code')->findOrFail($id);
+        $parents = User::whereNotNull('distributor_code')
+            ->where('id', '!=', $id)
+            ->where('status', 'active')
+            ->get();
+        $allLevels = User::getAllLevels();
 
         return view('distributors.edit', compact('distributor', 'parents', 'allLevels'));
     }
@@ -196,32 +207,34 @@ class DistributorController extends Controller
      */
     public function update(Request $request, $id): RedirectResponse
     {
-        $distributor = Distributor::findOrFail($id);
+        $distributor = User::whereNotNull('distributor_code')->findOrFail($id);
 
         $request->validate([
-            'distributor_code' => 'required|unique:distributors,distributor_code,' . $id,
+            'distributor_code' => 'required|unique:users,distributor_code,' . $id,
             'distributor_name' => 'required|string|max:255',
-            'distributor_email' => 'required|email|unique:distributors,distributor_email,' . $id,
+            'distributor_email' => 'required|email|unique:users,distributor_email,' . $id,
             'distributor_phone' => 'required|string|max:20',
             'distributor_address' => 'required|string',
-            'parent_id' => 'nullable|exists:distributors,id',
+            'parent_id' => 'nullable|exists:users,id',
             'join_date' => 'required|date',
-            'status' => 'required|in:active,inactive,suspended'
+            'status' => 'required|in:active,inactive'
         ]);
 
         $level = 1;
         if ($request->parent_id) {
-            $parent = Distributor::find($request->parent_id);
+            $parent = User::find($request->parent_id);
             $level = $parent->level + 1;
 
             // Kiểm tra giới hạn cấp độ
             $maxLevel = config('distributor.max_level', 10);
             if ($level > $maxLevel) {
-                return back()->withErrors(['parent_id' => "Không thể chuyển distributor vượt quá cấp độ {$maxLevel}"]);
+                return back()->withErrors(['parent_id' => "Không thể tạo distributor vượt quá cấp độ {$maxLevel}"]);
             }
         }
 
         $distributor->update([
+            'name' => $request->distributor_name,
+            'email' => $request->distributor_email,
             'distributor_code' => $request->distributor_code,
             'distributor_name' => $request->distributor_name,
             'distributor_email' => $request->distributor_email,
@@ -233,7 +246,7 @@ class DistributorController extends Controller
             'status' => $request->status
         ]);
 
-        return redirect()->route('distributors.index', $id)
+        return redirect()->route('distributors.index')
             ->with('success', 'Distributor đã được cập nhật thành công!');
     }
 
@@ -242,11 +255,16 @@ class DistributorController extends Controller
      */
     public function destroy($id): RedirectResponse
     {
-        $distributor = Distributor::findOrFail($id);
+        $distributor = User::whereNotNull('distributor_code')->findOrFail($id);
 
         // Kiểm tra xem có con không
         if ($distributor->children()->count() > 0) {
-            return back()->withErrors(['delete' => 'Không thể xóa distributor có con. Vui lòng xóa các distributor con trước.']);
+            return back()->withErrors(['error' => 'Không thể xóa distributor có con!']);
+        }
+
+        // Kiểm tra xem có đơn hàng không
+        if ($distributor->orders()->count() > 0) {
+            return back()->withErrors(['error' => 'Không thể xóa distributor có đơn hàng!']);
         }
 
         $distributor->delete();
@@ -256,25 +274,42 @@ class DistributorController extends Controller
     }
 
     /**
+     * Tìm kiếm distributor
+     */
+    public function search(Request $request): View
+    {
+        $query = $request->get('q');
+        
+        $distributors = User::whereNotNull('distributor_code')
+            ->where(function($q) use ($query) {
+                $q->where('distributor_name', 'like', "%{$query}%")
+                  ->orWhere('distributor_code', 'like', "%{$query}%")
+                  ->orWhere('distributor_email', 'like', "%{$query}%");
+            })
+            ->with('parent')
+            ->paginate(20);
+
+        return view('distributors.search', compact('distributors', 'query'));
+    }
+
+    /**
      * Xây dựng cây phân cấp
      */
     private function buildTree($distributor): array
     {
-        $node = [
+        $tree = [
             'id' => $distributor->id,
             'name' => $distributor->distributor_name,
             'code' => $distributor->distributor_code,
-            'level' => $distributor->getLevelName(),
-            'level_number' => $distributor->level,
-            'status' => $distributor->status,
+            'level' => $distributor->level,
             'children' => []
         ];
 
         foreach ($distributor->children as $child) {
-            $node['children'][] = $this->buildTree($child);
+            $tree['children'][] = $this->buildTree($child);
         }
 
-        return $node;
+        return $tree;
     }
 
     /**
@@ -282,85 +317,58 @@ class DistributorController extends Controller
      */
     private function getMaxDepth($distributor, $currentDepth = 0): int
     {
-        $maxDepth = $currentDepth;
+        if ($distributor->children->isEmpty()) {
+            return $currentDepth;
+        }
 
+        $maxDepth = $currentDepth;
         foreach ($distributor->children as $child) {
-            $childDepth = $this->getMaxDepth($child, $currentDepth + 1);
-            $maxDepth = max($maxDepth, $childDepth);
+            $depth = $this->getMaxDepth($child, $currentDepth + 1);
+            $maxDepth = max($maxDepth, $depth);
         }
 
         return $maxDepth;
     }
 
     /**
-     * Hiển thị thông tin chi tiết về doanh số và thu nhập của distributor
+     * Hiển thị chi tiết thu nhập
      */
     public function showIncomeDetails($id): View
     {
-        $distributor = Distributor::with(['parent', 'children', 'orders'])
+        $distributor = User::whereNotNull('distributor_code')
+            ->with(['orders', 'bonusRecords'])
             ->findOrFail($id);
 
         $levelName = $distributor->getLevelName();
-
-        // Thống kê doanh số của distributor này
-        $ownSales = $distributor->orders->sum('amount');
-        $ownOrders = $distributor->orders->count();
-        $averageOrderValue = $ownOrders > 0 ? $ownSales / $ownOrders : 0;
-
-        // Thống kê doanh số của toàn bộ network (bao gồm con cháu)
-        $networkOverview = $distributor->getDistributorNetworkOverview();
-        $totalNetworkSales = $networkOverview['total_sales'];
-
-        // Lấy danh sách con trực tiếp với thống kê
-        $directChildren = $distributor->children()->with(['orders'])->get();
-        $childrenStats = [];
-
-        foreach ($directChildren as $child) {
-            $childSales = $child->orders->sum('amount');
-            $childOrders = $child->orders->count();
-            $childNetworkSales = $child->getTotalSubNetworkSales();
-
-            $childrenStats[] = [
-                'distributor' => $child,
-                'own_sales' => $childSales,
-                'own_orders' => $childOrders,
-                'network_sales' => $childNetworkSales,
-                'average_order' => $childOrders > 0 ? $childSales / $childOrders : 0
-            ];
-        }
-
-        // Thống kê theo thời gian
-        $monthlyStats = $this->getMonthlyStats($distributor->id);
-        $yearlyStats = $this->getYearlyStats($distributor->id);
-
-        // Top performers trong network
-        $topPerformers = $this->getTopPerformers($distributor->id);
-
-        // Thông tin thưởng đồng chia
-        $bonusService = app(\App\Services\BonusCalculationService::class);
         $currentMonth = \App\Models\BonusRecord::getCurrentMonth();
-        $bonusInfo = $bonusService->calculateDistributorBonus($distributor, $currentMonth);
-        
-        // Lấy lịch sử thưởng
-        $bonusHistory = \App\Models\BonusRecord::where('distributor_id', $distributor->id)
+        $bonusInfo = app(\App\Services\BonusCalculationService::class)
+            ->calculateDistributorBonus($distributor, $currentMonth);
+        $bonusHistory = \App\Models\BonusRecord::where('user_id', $distributor->id)
             ->orderBy('month_year', 'desc')
             ->limit(12)
             ->get();
 
+        // Thống kê theo tháng
+        $monthlyStats = $this->getMonthlyStats($distributor->id) ?? [];
+        // Thống kê theo năm
+        $yearlyStats = $this->getYearlyStats($distributor->id) ?? [];
+        // Top performers trong network
+        $topPerformers = $this->getTopPerformers($distributor->id) ?? [];
+        // Tổng thu nhập
+        $totalIncome = $distributor->bonusRecords->sum('bonus_amount');
+        $totalSales = $distributor->orders->sum('amount');
+
         return view('distributors.income-details', compact(
             'distributor',
-            'levelName',
-            'ownSales',
-            'ownOrders',
-            'averageOrderValue',
-            'totalNetworkSales',
-            'childrenStats',
             'monthlyStats',
             'yearlyStats',
             'topPerformers',
+            'totalIncome',
+            'totalSales',
+            'levelName',
+            'currentMonth',
             'bonusInfo',
-            'bonusHistory',
-            'currentMonth'
+            'bonusHistory'
         ));
     }
 
@@ -369,30 +377,17 @@ class DistributorController extends Controller
      */
     private function getMonthlyStats($distributorId): array
     {
-        $stats = [];
-
-        for ($i = 11; $i >= 0; $i--) {
-            $date = now()->subMonths($i);
-            $month = $date->format('Y-m');
-
-            $sales = Order::where('distributor_id', $distributorId)
-                ->whereYear('sale_time', $date->year)
-                ->whereMonth('sale_time', $date->month)
-                ->sum('amount');
-
-            $orders = Order::where('distributor_id', $distributorId)
-                ->whereYear('sale_time', $date->year)
-                ->whereMonth('sale_time', $date->month)
-                ->count();
-
-            $stats[$month] = [
-                'sales' => $sales,
-                'orders' => $orders,
-                'average' => $orders > 0 ? $sales / $orders : 0
-            ];
-        }
-
-        return $stats;
+        $currentYear = date('Y');
+        
+        return DB::table('bonus_records')
+            ->where('user_id', $distributorId)
+            ->whereYear('created_at', $currentYear)
+            ->selectRaw('MONTH(created_at) as month, SUM(bonus_amount) as total_bonus, COUNT(*) as bonus_count')
+            ->groupBy('month')
+            ->orderBy('month')
+            ->get()
+            ->keyBy('month')
+            ->toArray();
     }
 
     /**
@@ -400,27 +395,13 @@ class DistributorController extends Controller
      */
     private function getYearlyStats($distributorId): array
     {
-        $stats = [];
-
-        for ($i = 4; $i >= 0; $i--) {
-            $year = now()->subYears($i)->year;
-
-            $sales = Order::where('distributor_id', $distributorId)
-                ->whereYear('sale_time', $year)
-                ->sum('amount');
-
-            $orders = Order::where('distributor_id', $distributorId)
-                ->whereYear('sale_time', $year)
-                ->count();
-
-            $stats[$year] = [
-                'sales' => $sales,
-                'orders' => $orders,
-                'average' => $orders > 0 ? $sales / $orders : 0
-            ];
-        }
-
-        return $stats;
+        return DB::table('bonus_records')
+            ->where('user_id', $distributorId)
+            ->selectRaw('YEAR(created_at) as year, SUM(bonus_amount) as total_bonus, COUNT(*) as bonus_count')
+            ->groupBy('year')
+            ->orderBy('year', 'desc')
+            ->get()
+            ->toArray();
     }
 
     /**
@@ -428,22 +409,12 @@ class DistributorController extends Controller
      */
     private function getTopPerformers($distributorId): array
     {
-        $distributor = Distributor::find($distributorId);
-        $descendantIds = $distributor->getAllDescendantIds();
-        $descendantIds->push($distributorId);
-
-        return Order::with('distributor')
-            ->whereIn('distributor_id', $descendantIds)
-            ->selectRaw('distributor_id, COUNT(*) as order_count, SUM(amount) as total_sales')
-            ->groupBy('distributor_id')
-            ->orderByDesc('total_sales')
-            ->limit(10)
+        return User::whereNotNull('distributor_code')
+            ->where('parent_id', $distributorId)
+            ->withSum('orders', 'amount')
+            ->orderByDesc('orders_sum_amount')
+            ->take(5)
             ->get()
-            ->map(function ($item) {
-                $item->distributor->total_sales = $item->total_sales;
-                $item->distributor->order_count = $item->order_count;
-                return $item->distributor;
-            })
             ->toArray();
     }
 }

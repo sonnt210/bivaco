@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order;
-use App\Models\Distributor;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -15,16 +15,16 @@ class OrderController extends Controller
      */
     public function index(Request $request): View
     {
-        $query = Order::with(['distributor']);
+        $query = Order::with(['user']);
 
         // Lọc theo distributor
-        if ($request->has('distributor_id') && $request->distributor_id) {
-            $query->where('distributor_id', $request->distributor_id);
+        if ($request->has('user_id') && $request->user_id) {
+            $query->where('user_id', $request->user_id);
         }
 
         // Lọc theo cấp độ distributor
-        if ($request->has('distributor_level') && $request->distributor_level) {
-            $query->where('distributor_level', $request->distributor_level);
+        if ($request->has('user_level') && $request->user_level) {
+            $query->where('user_level', $request->user_level);
         }
 
         // Lọc theo khoảng thời gian
@@ -53,8 +53,8 @@ class OrderController extends Controller
         $orders = $query->latest('sale_time')->paginate(20);
 
         // Lấy danh sách distributors cho filter
-        $distributors = Distributor::active()->get();
-        $distributorLevels = Distributor::getAllLevels();
+        $distributors = User::whereNotNull('distributor_code')->where('status', 'active')->get();
+        $distributorLevels = User::getAllLevels();
 
         return view('orders.index', compact(
             'orders',
@@ -68,8 +68,8 @@ class OrderController extends Controller
      */
     public function byDistributor($distributorId): View
     {
-        $distributor = Distributor::findOrFail($distributorId);
-        $orders = Order::where('distributor_id', $distributorId)
+        $distributor = User::whereNotNull('distributor_code')->findOrFail($distributorId);
+        $orders = Order::where('user_id', $distributorId)
             ->latest('sale_time')
             ->paginate(20);
 
@@ -91,13 +91,13 @@ class OrderController extends Controller
      */
     public function byLevel($level): View
     {
-        $orders = Order::where('distributor_level', $level)
-            ->with('distributor')
+        $orders = Order::where('user_level', $level)
+            ->with('user')
             ->latest('sale_time')
             ->paginate(20);
 
         $levelName = 'Level ' . $level;
-        $levelDescription = Distributor::getLevelDescription($level);
+        $levelDescription = User::getLevelDescription($level);
 
         $totalSales = $orders->sum('amount');
         $totalOrders = $orders->count();
@@ -119,7 +119,7 @@ class OrderController extends Controller
      */
     public function show($id): View
     {
-        $order = Order::with(['distributor'])->findOrFail($id);
+        $order = Order::with(['user'])->findOrFail($id);
 
         return view('orders.show', compact('order'));
     }
@@ -129,7 +129,7 @@ class OrderController extends Controller
      */
     public function create(): View
     {
-        $distributors = Distributor::active()->get();
+        $distributors = User::whereNotNull('distributor_code')->where('status', 'active')->get();
 
         return view('orders.create', compact('distributors'));
     }
@@ -140,7 +140,7 @@ class OrderController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
-            'distributor_id' => 'required|exists:distributors,id',
+            'user_id' => 'required|exists:users,id',
             'amount' => 'required|numeric|min:0',
             'sale_time' => 'required|date',
             'bill_code' => 'required|unique:orders',
@@ -148,12 +148,12 @@ class OrderController extends Controller
         ]);
 
         // Lấy thông tin distributor để set level
-        $distributor = Distributor::find($request->distributor_id);
+        $distributor = User::find($request->user_id);
         $distributorLevel = $distributor->level;
 
         Order::create([
-            'distributor_id' => $request->distributor_id,
-            'distributor_level' => $distributorLevel,
+            'user_id' => $request->user_id,
+            'user_level' => $distributorLevel,
             'amount' => $request->amount,
             'sale_time' => $request->sale_time,
             'bill_code' => $request->bill_code,
@@ -170,7 +170,7 @@ class OrderController extends Controller
     public function edit($id): View
     {
         $order = Order::findOrFail($id);
-        $distributors = Distributor::active()->get();
+        $distributors = User::whereNotNull('distributor_code')->where('status', 'active')->get();
 
         return view('orders.edit', compact('order', 'distributors'));
     }
@@ -183,7 +183,7 @@ class OrderController extends Controller
         $order = Order::findOrFail($id);
 
         $request->validate([
-            'distributor_id' => 'required|exists:distributors,id',
+            'user_id' => 'required|exists:users,id',
             'amount' => 'required|numeric|min:0',
             'sale_time' => 'required|date',
             'bill_code' => 'required|unique:orders,bill_code,' . $id,
@@ -191,12 +191,12 @@ class OrderController extends Controller
         ]);
 
         // Lấy thông tin distributor để set level
-        $distributor = Distributor::find($request->distributor_id);
+        $distributor = User::find($request->user_id);
         $distributorLevel = $distributor->level;
 
         $order->update([
-            'distributor_id' => $request->distributor_id,
-            'distributor_level' => $distributorLevel,
+            'user_id' => $request->user_id,
+            'user_level' => $distributorLevel,
             'amount' => $request->amount,
             'sale_time' => $request->sale_time,
             'bill_code' => $request->bill_code,
@@ -225,54 +225,19 @@ class OrderController extends Controller
     public function search(Request $request): View
     {
         $query = $request->get('q');
-        $distributorId = $request->get('distributor_id');
-        $distributorLevel = $request->get('distributor_level');
-        $startDate = $request->get('start_date');
-        $endDate = $request->get('end_date');
-
-        $orders = Order::with(['distributor']);
-
-        if ($query) {
-            $orders->where(function($q) use ($query) {
+        
+        $orders = Order::with('user')
+            ->where(function($q) use ($query) {
                 $q->where('bill_code', 'like', "%{$query}%")
                   ->orWhere('notes', 'like', "%{$query}%")
-                  ->orWhereHas('distributor', function($distQuery) use ($query) {
-                      $distQuery->where('distributor_name', 'like', "%{$query}%")
+                  ->orWhereHas('user', function($userQuery) use ($query) {
+                      $userQuery->where('distributor_name', 'like', "%{$query}%")
                                ->orWhere('distributor_code', 'like', "%{$query}%");
                   });
-            });
-        }
+            })
+            ->latest('sale_time')
+            ->paginate(20);
 
-        if ($distributorId) {
-            $orders->where('distributor_id', $distributorId);
-        }
-
-        if ($distributorLevel) {
-            $orders->where('distributor_level', $distributorLevel);
-        }
-
-        if ($startDate) {
-            $orders->whereDate('sale_time', '>=', $startDate);
-        }
-
-        if ($endDate) {
-            $orders->whereDate('sale_time', '<=', $endDate);
-        }
-
-        $orders = $orders->latest('sale_time')->paginate(20);
-
-        $distributors = Distributor::active()->get();
-        $distributorLevels = Distributor::getAllLevels();
-
-        return view('orders.search', compact(
-            'orders',
-            'query',
-            'distributorId',
-            'distributorLevel',
-            'startDate',
-            'endDate',
-            'distributors',
-            'distributorLevels'
-        ));
+        return view('orders.search', compact('orders', 'query'));
     }
 }

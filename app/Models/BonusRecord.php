@@ -11,7 +11,7 @@ class BonusRecord extends Model
     use HasFactory;
 
     protected $fillable = [
-        'distributor_id',
+        'user_id',
         'month_year',
         'personal_sales',
         'personal_sales_t1',
@@ -46,15 +46,15 @@ class BonusRecord extends Model
     ];
 
     // Constants
-    const PERSONAL_SALES_THRESHOLD = 5000000; // 5 triệu VNĐ
-    const BRANCH_SALES_THRESHOLD = 250000000; // 250 triệu VNĐ
+    const PERSONAL_SALES_THRESHOLD = 5000000;
+    const BRANCH_SALES_THRESHOLD = 250000000;
     const MIN_QUALIFIED_BRANCHES = 2; // Tối thiểu 2 nhánh đạt chuẩn
     const MAX_CONSECUTIVE_FAILURES = 5; // Tối đa 5 tháng liên tiếp không đạt
     const BONUS_PERCENTAGE = 0.01; // 1% tổng doanh số hệ thống
 
-    public function distributor()
+    public function user()
     {
-        return $this->belongsTo(Distributor::class);
+        return $this->belongsTo(User::class);
     }
 
     /**

@@ -2,13 +2,13 @@
 
 namespace Database\Factories;
 
-use App\Models\Distributor;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
 class DistributorFactory extends Factory
 {
-    protected $model = Distributor::class;
+    protected $model = User::class;
 
     public function definition(): array
     {
